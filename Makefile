@@ -5,8 +5,14 @@ CXXFLAGS = $(CPPVERSION) -Wall -fvisibility=hidden $(CFLAGS)
 LDFLAGS = $(LIBFLAG)
 LDLIBS = -lpthread
 
+# Only link Lua library if explicitly needed (not typical for macOS)
 ifdef LUA_LIBDIR
-LDLIBS += $(LUA_LIBDIR)/$(LUALIB)
+  ifdef LUALIB
+    # Make sure LUALIB is a filename, not empty or directory
+    ifneq ($(LUALIB),)
+      LDLIBS += $(LUA_LIBDIR)/$(LUALIB)
+    endif
+  endif
 endif
 
 ifeq ($(OS),Windows_NT)
