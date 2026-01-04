@@ -1,6 +1,7 @@
 OBJ = src/luasimdjson.o src/simdjson.o
 CPPFLAGS += -I$(LUA_INCDIR)
-CXXFLAGS = -std=c++11 -Wall -fvisibility=hidden $(CFLAGS)
+CPPVERSION = "-std=c++11"
+CXXFLAGS = $(CPPVERSION) -Wall -fvisibility=hidden $(CFLAGS)
 LDFLAGS = $(LIBFLAG)
 LDLIBS = -lpthread
 
@@ -16,14 +17,8 @@ else
 		LIBEXT = dll
 	else ifeq ($(findstring CYGWIN,$(UNAME)),CYGWIN)
 		LIBEXT = dll
-    else ifeq ($(UNAME),Darwin)
-        LIBEXT = so
-        # macOS specific flags for Lua modules
-        LDFLAGS += -bundle -undefined dynamic_lookup
-    else
-        LIBEXT = so
-        # Linux/Unix specific flags for shared libraries
-        LDFLAGS += -shared -fPIC
+	else
+		LIBEXT = so
 	endif
 endif
 
@@ -48,27 +43,27 @@ install: $(TARGET)
 
 # Test targets for different C++ standards
 test-cpp11:
-	@echo "=== Testing with C++11 ==="
+	@echo "=== Testing with C++11 (default)==="
 	$(MAKE) clean
-	luarocks make CXXFLAGS="-std=c++11"
+	luarocks make
 	busted --verbose
 
 test-cpp17:
 	@echo "=== Testing with C++17 ==="
 	$(MAKE) clean
-	luarocks make CXXFLAGS="-std=c++17"
+	luarocks make CPPVERSION="-std=c++17"
 	busted --verbose
 
 test-cpp20:
 	@echo "=== Testing with C++20 ==="
 	$(MAKE) clean
-	luarocks make CXXFLAGS="-std=c++20"
+	luarocks make CPPVERSION="-std=c++20"
 	busted --verbose
 
 test-cpp23:
 	@echo "=== Testing with C++23 ==="
 	$(MAKE) clean
-	luarocks make CXXFLAGS="-std=c++23"
+	luarocks make CPPVERSION="-std=c++23"
 	busted --verbose
 
 test-all-standards: test-cpp11 test-cpp17 test-cpp20 test-cpp23
