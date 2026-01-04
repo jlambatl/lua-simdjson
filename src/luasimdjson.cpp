@@ -16,7 +16,7 @@
 #include "simdjson.h"
 
 #define LUA_SIMDJSON_NAME "simdjson"
-#define LUA_SIMDJSON_VERSION "0.0.8"
+#define LUA_SIMDJSON_VERSION "0.0.9"
 
 // keys encode max depth configuration.
 #define LUA_SIMDJSON_MAX_ENCODE_DEPTH_KEY "simdjson.max_encode_depth"
@@ -211,7 +211,24 @@ static int active_implementation(lua_State *L) {
   const auto &implementation = simdjson::get_active_implementation();
   std::string name = implementation->name();
   const std::string description = implementation->description();
-  const std::string implementation_name = name + " (" + description + ")";
+
+  // Determine C++ standard version
+  const char *cpp_std;
+#if __cplusplus >= 202302L
+  cpp_std = "C++23";
+#elif __cplusplus >= 202002L
+  cpp_std = "C++20";
+#elif __cplusplus >= 201703L
+  cpp_std = "C++17";
+#elif __cplusplus >= 201402L
+  cpp_std = "C++14";
+#elif __cplusplus >= 201103L
+  cpp_std = "C++11";
+#else
+  cpp_std = "C++98";
+#endif
+
+  const std::string implementation_name = name + " (" + description + ") [" + cpp_std + "]";
 
   lua_pushlstring(L, implementation_name.data(), implementation_name.size());
 
