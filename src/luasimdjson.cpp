@@ -401,11 +401,9 @@ inline void serialize_append_bool(lua_State *L, SIMDJSON_BUILTIN_IMPLEMENTATION:
 };
 
 static void serialize_append_number(lua_State *L, SIMDJSON_BUILTIN_IMPLEMENTATION::builder::string_builder &builder, int lindex) {
-  auto num_result = format_number_as_string(L, lindex);
-  const char *num_str = num_result.first;
-  size_t len = num_result.second;
+  auto result = format_number_as_string(L, lindex);
   // Use append_raw with string_view for numbers (no quotes)
-  builder.append_raw(std::string_view(num_str, len));
+  builder.append_raw(std::string_view(result.first, result.second));
 };
 
 static void serialize_append_string(lua_State *L, SIMDJSON_BUILTIN_IMPLEMENTATION::builder::string_builder &builder, int lindex) {
