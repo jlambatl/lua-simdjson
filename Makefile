@@ -43,10 +43,10 @@ install: $(TARGET)
 
 # Test targets for different C++ standards
 test-cpp11:
-	@echo "=== Testing with C++11 (default)==="
-	luarocks remove simdjson
+	@echo "=== Testing with C++11 ==="
+	luarocks remove simdjson || true
 	$(MAKE) clean
-	luarocks make
+	luarocks make CXX_STD="-std=c++11"
 	busted --verbose
 
 test-cpp17:
