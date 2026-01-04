@@ -51,21 +51,21 @@ test-cpp11:
 
 test-cpp17:
 	@echo "=== Testing with C++17 ==="
-	luarocks remove simdjson
+	luarocks remove simdjson || true
 	$(MAKE) clean
 	luarocks make CXX_STD="-std=c++17"
 	busted --verbose
 
 test-cpp20:
 	@echo "=== Testing with C++20 ==="
-	luarocks remove simdjson
+	luarocks remove simdjson || true
 	$(MAKE) clean
 	luarocks make CXX_STD="-std=c++20"
 	busted --verbose
 
 test-cpp23:
 	@echo "=== Testing with C++23 ==="
-	luarocks remove simdjson
+	luarocks remove simdjson || true
 	$(MAKE) clean
 	luarocks make CXX_STD="-std=c++23"
 	busted --verbose
