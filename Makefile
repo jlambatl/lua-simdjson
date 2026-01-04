@@ -17,10 +17,13 @@ else
 	else ifeq ($(findstring CYGWIN,$(UNAME)),CYGWIN)
 		LIBEXT = dll
     else ifeq ($(UNAME),Darwin)
+        LIBEXT = so
         # macOS specific flags for Lua modules
         LDFLAGS += -bundle -undefined dynamic_lookup
     else
-		LIBEXT = so
+        LIBEXT = so
+        # Linux/Unix specific flags for shared libraries
+        LDFLAGS += -shared -fPIC
 	endif
 endif
 
