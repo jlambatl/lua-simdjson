@@ -16,7 +16,10 @@ else
 		LIBEXT = dll
 	else ifeq ($(findstring CYGWIN,$(UNAME)),CYGWIN)
 		LIBEXT = dll
-	else
+    else ifeq ($(UNAME),Darwin)
+        # macOS specific flags for Lua modules
+        LDFLAGS += -bundle -undefined dynamic_lookup
+    else
 		LIBEXT = so
 	endif
 endif
@@ -39,3 +42,33 @@ clean:
 
 install: $(TARGET)
 	cp $(TARGET) $(INST_LIBDIR)
+
+# Test targets for different C++ standards
+test-cpp11:
+	@echo "=== Testing with C++11 ==="
+	$(MAKE) clean
+	$(MAKE) CXXFLAGS="-std=c++11 -Wall -fvisibility=hidden $(CFLAGS)"
+	busted --verbose --cpath=?.so
+
+test-cpp17:
+	@echo "=== Testing with C++17 ==="
+	$(MAKE) clean
+	$(MAKE) CXXFLAGS="-std=c++17 -Wall -fvisibility=hidden $(CFLAGS)"
+	busted --verbose --cpath=?.so
+
+test-cpp20:
+	@echo "=== Testing with C++20 ==="
+	$(MAKE) clean
+	$(MAKE) CXXFLAGS="-std=c++20 -Wall -fvisibility=hidden $(CFLAGS)"
+	busted --verbose --cpath=?.so
+
+test-cpp23:
+	@echo "=== Testing with C++23 ==="
+	$(MAKE) clean
+	$(MAKE) CXXFLAGS="-std=c++23 -Wall -fvisibility=hidden $(CFLAGS)"
+	busted --verbose --cpath=?.so
+
+test-all-standards: test-cpp11 test-cpp17 test-cpp20 test-cpp23
+	@echo "=== All C++ standards tested successfully ==="
+
+.PHONY: clean install test-cpp11 test-cpp17 test-cpp20 test-all-standards

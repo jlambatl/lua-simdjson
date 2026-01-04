@@ -382,16 +382,20 @@ inline void serialize_append_bool(lua_State *L, SIMDJSON_BUILTIN_IMPLEMENTATION:
   // check if it is really a boolean
   if (lua_isboolean(L, lindex)) {
     if (lua_toboolean(L, lindex)) {
-// Use append_raw with string_view for batched append (more efficient than multiple char appends)
-#if __cplusplus >= 202002L
+
+#if __cplusplus >= 201703L
+      // Use append with bool for C++17 and later
       builder.append(true);
 #else
+      // Use append_raw with string_view for batched append (more efficient than multiple char appends)
       builder.append_raw(std::string_view("true", 4));
 #endif
     } else {
-#if __cplusplus >= 202002L
+#if __cplusplus >= 201703L
+      // Use append with bool for C++17 and later
       builder.append(false);
 #else
+      // Use append_raw with string_view for batched append (more efficient than multiple char appends)
       builder.append_raw(std::string_view("false", 5));
 #endif
     }

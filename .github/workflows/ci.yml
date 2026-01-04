@@ -50,7 +50,7 @@ jobs:
           source lua_install/bin/activate
           luarocks install lua-cjson2
           luarocks install busted
-          busted --verbose
+          make test-all-standards
 
   windows:
     strategy:
