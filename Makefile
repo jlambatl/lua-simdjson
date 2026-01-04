@@ -1,18 +1,12 @@
 OBJ = src/luasimdjson.o src/simdjson.o
-CPPFLAGS += -I$(LUA_INCDIR)
-CPPVERSION = "-std=c++11"
-CXXFLAGS = $(CPPVERSION) -Wall -fvisibility=hidden $(CFLAGS)
+CPPFLAGS = -I$(LUA_INCDIR)
+CXX_STD ?= -std=c++11
+CXXFLAGS = $(CXX_STD) -Wall -fvisibility=hidden $(CFLAGS)
 LDFLAGS = $(LIBFLAG)
 LDLIBS = -lpthread
 
-# Only link Lua library if explicitly needed (not typical for macOS)
 ifdef LUA_LIBDIR
-  ifdef LUALIB
-    # Make sure LUALIB is a filename, not empty or directory
-    ifneq ($(LUALIB),)
-      LDLIBS += $(LUA_LIBDIR)/$(LUALIB)
-    endif
-  endif
+LDLIBS += $(LUA_LIBDIR)/$(LUALIB)
 endif
 
 ifeq ($(OS),Windows_NT)
@@ -57,19 +51,19 @@ test-cpp11:
 test-cpp17:
 	@echo "=== Testing with C++17 ==="
 	$(MAKE) clean
-	luarocks make CPPVERSION="-std=c++17"
+	luarocks make CXX_STD="-std=c++17"
 	busted --verbose
 
 test-cpp20:
 	@echo "=== Testing with C++20 ==="
 	$(MAKE) clean
-	luarocks make CPPVERSION="-std=c++20"
+	luarocks make CXX_STD="-std=c++20"
 	busted --verbose
 
 test-cpp23:
 	@echo "=== Testing with C++23 ==="
 	$(MAKE) clean
-	luarocks make CPPVERSION="-std=c++23"
+	luarocks make CXX_STD="-std=c++23"
 	busted --verbose
 
 test-all-standards: test-cpp11 test-cpp17 test-cpp20 test-cpp23
