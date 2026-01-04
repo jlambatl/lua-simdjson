@@ -51,25 +51,25 @@ test-cpp11:
 	@echo "=== Testing with C++11 ==="
 	$(MAKE) clean
 	$(MAKE) CXXFLAGS="-std=c++11 -Wall -fvisibility=hidden $(CFLAGS)"
-	busted --verbose --cpath=?.so
+	busted --verbose
 
 test-cpp17:
 	@echo "=== Testing with C++17 ==="
 	$(MAKE) clean
 	$(MAKE) CXXFLAGS="-std=c++17 -Wall -fvisibility=hidden $(CFLAGS)"
-	busted --verbose --cpath=?.so
+	busted --verbose
 
 test-cpp20:
 	@echo "=== Testing with C++20 ==="
 	$(MAKE) clean
 	$(MAKE) CXXFLAGS="-std=c++20 -Wall -fvisibility=hidden $(CFLAGS)"
-	busted --verbose --cpath=?.so
+	busted --verbose
 
 test-cpp23:
 	@echo "=== Testing with C++23 ==="
 	$(MAKE) clean
 	$(MAKE) CXXFLAGS="-std=c++23 -Wall -fvisibility=hidden $(CFLAGS)"
-	busted --verbose --cpath=?.so
+	busted --verbose
 
 test-all-standards: test-cpp11 test-cpp17 test-cpp20 test-cpp23
 	@echo "=== All C++ standards tested successfully ==="
