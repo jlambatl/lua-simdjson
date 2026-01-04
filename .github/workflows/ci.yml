@@ -50,6 +50,14 @@ jobs:
           source lua_install/bin/activate
           luarocks install lua-cjson2
           luarocks install busted
+          busted --verbose
+      - name: C++ Standard Compatibility Tests
+        shell: bash
+        run: |
+          set -e
+          source lua_install/bin/activate
+          luarocks install lua-cjson2
+          luarocks install busted
           make test-all-standards
 
   windows:
