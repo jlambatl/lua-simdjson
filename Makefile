@@ -44,31 +44,27 @@ install: $(TARGET)
 # Test targets for different C++ standards
 test-cpp11:
 	@echo "=== Testing with C++11 ==="
-	luarocks remove simdjson || true
 	$(MAKE) clean
-	luarocks make CXX_STD="-std=c++11"
-	busted --verbose
+	$(MAKE) CXX_STD="-std=c++11"
+	busted --verbose --cpath=?.so
 
 test-cpp17:
 	@echo "=== Testing with C++17 ==="
-	luarocks remove simdjson || true
 	$(MAKE) clean
-	luarocks make CXX_STD="-std=c++17"
-	busted --verbose
+	$(MAKE) CXX_STD="-std=c++17"
+	busted --verbose --cpath=?.so
 
 test-cpp20:
 	@echo "=== Testing with C++20 ==="
-	luarocks remove simdjson || true
 	$(MAKE) clean
-	luarocks make CXX_STD="-std=c++20"
-	busted --verbose
+	$(MAKE) CXX_STD="-std=c++20"
+	busted --verbose --cpath=?.so
 
 test-cpp23:
 	@echo "=== Testing with C++23 ==="
-	luarocks remove simdjson || true
 	$(MAKE) clean
-	luarocks make CXX_STD="-std=c++23"
-	busted --verbose
+	$(MAKE) CXX_STD="-std=c++23"
+	busted --verbose --cpath=?.so
 
 test-all-standards: test-cpp11 test-cpp17 test-cpp20 test-cpp23
 	@echo "=== All C++ standards tested successfully ==="
