@@ -24,7 +24,7 @@ endif
 
 TARGET = simdjson.$(LIBEXT)
 
-all: clean $(TARGET)
+all: $(TARGET)
 
 DEP_FILES = $(OBJ:.o=.d)
 -include $(DEP_FILES)
@@ -42,27 +42,31 @@ install: $(TARGET)
 	cp $(TARGET) $(INST_LIBDIR)
 
 # Test targets for different C++ standards
-test-cpp11: clean
+test-cpp11:
 	@echo "=== Testing with C++11 (default)==="
+	$(MAKE) clean
 	luarocks --verbose make
 	busted --verbose
 
-test-cpp17: clean
+test-cpp17:
 	@echo "=== Testing with C++17 ==="
-	luarocks --verbose make CXX_STD="-std=c++17"
+	$(MAKE) clean
+	luarocks make CXX_STD="-std=c++17"
 	busted --verbose
 
-test-cpp20: clean
+test-cpp20:
 	@echo "=== Testing with C++20 ==="
+	$(MAKE) clean
 	luarocks make CXX_STD="-std=c++20"
 	busted --verbose
 
-test-cpp23: clean
+test-cpp23:
 	@echo "=== Testing with C++23 ==="
-	luarocks  --verbose make CXX_STD="-std=c++23"
+	$(MAKE) clean
+	luarocks make CXX_STD="-std=c++23"
 	busted --verbose
 
 test-all-standards: test-cpp11 test-cpp17 test-cpp20 test-cpp23
 	@echo "=== All C++ standards tested successfully ==="
 
-.PHONY: clean install test-cpp11 test-cpp17 test-cpp20 test-all-standards
+.PHONY: clean install test-cpp11 test-cpp17 test-cpp20 test-cpp23 test-all-standards
