@@ -18,6 +18,7 @@ build = {
    type = "make",
    build_variables = {
       CFLAGS="$(CFLAGS)",
+      CXXFLAGS="$(CXXFLAGS)",
       LIBFLAG="$(LIBFLAG)",
       LUA_BINDIR="$(LUA_BINDIR)",
       LUA_INCDIR="$(LUA_INCDIR)",

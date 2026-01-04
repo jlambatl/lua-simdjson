@@ -50,25 +50,25 @@ install: $(TARGET)
 test-cpp11:
 	@echo "=== Testing with C++11 ==="
 	$(MAKE) clean
-	luarocks make CFLAGS="-std=c++11"
+	luarocks make CXXFLAGS="-std=c++11"
 	busted --verbose
 
 test-cpp17:
 	@echo "=== Testing with C++17 ==="
 	$(MAKE) clean
-	luarocks make CFLAGS="-std=c++17"
+	luarocks make CXXFLAGS="-std=c++17"
 	busted --verbose
 
 test-cpp20:
 	@echo "=== Testing with C++20 ==="
 	$(MAKE) clean
-	luarocks make CFLAGS="-std=c++20"
+	luarocks make CXXFLAGS="-std=c++20"
 	busted --verbose
 
 test-cpp23:
 	@echo "=== Testing with C++23 ==="
 	$(MAKE) clean
-	luarocks make CFLAGS="-std=c++23"
+	luarocks make CXXFLAGS="-std=c++23"
 	busted --verbose
 
 test-all-standards: test-cpp11 test-cpp17 test-cpp20 test-cpp23
