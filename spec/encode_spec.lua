@@ -412,3 +412,11 @@ describe("encode edge cases", function()
         assert.are.same(cjsonEncoded, simdjsonEncoded)
     end)
 end)
+
+describe("Null and Empty Values", function()
+    it("encodes explicit null values correctly", function()
+        local table_with_null = { a = nil, b = "value" }
+        local encoded = simdjson.encode(table_with_null)
+        assert.are.same('{"b":"value"}', encoded) -- nil keys are omitted
+    end)
+end)

@@ -1,0 +1,23 @@
+{
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/src",
+        "/opt/homebrew/Cellar/lua/5.4.8/include/lua5.4",
+        "/opt/homebrew/include"
+    ],
+    "C_Cpp.default.compilerPath": "/usr/bin/clang++",
+    "C_Cpp.default.cStandard": "c11",
+    "C_Cpp.default.cppStandard": "c++11",
+    "C_Cpp.default.defines": [
+        "__OPTIMIZE__=1",
+        "NDEBUG"
+    ],
+    "terminal.integrated.env.osx": {
+        "LUA_INCDIR": "/opt/homebrew/Cellar/lua/5.4.8/include/lua5.4",
+        "LUA_LIBDIR": "/opt/homebrew/Cellar/lua/5.4.8/lib",
+        "LDFLAGS": "-L/opt/homebrew/Cellar/lua/5.4.8/lib",
+        "LDLIBS": "-llua5.4 -lpthread",
+        "CFLAGS": "-I/opt/homebrew/Cellar/lua/5.4.8/include/lua5.4",
+        "LUA_CPATH": "./?.so",
+        "PATH": "/opt/homebrew/bin:${env:PATH}"
+    }
+}

@@ -1,0 +1,58 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "make",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "env": {
+                    "LUA_INCDIR": "/opt/homebrew/Cellar/lua/5.4.8/include/lua5.4",
+                    "LUA_LIBDIR": "/opt/homebrew/Cellar/lua/5.4.8/lib",
+                    "LDFLAGS": "-L/opt/homebrew/Cellar/lua/5.4.8/lib",
+                    "LDLIBS": "-llua5.4 -lpthread",
+                    "CFLAGS": "-I/opt/homebrew/Cellar/lua/5.4.8/include/lua5.4"
+                }
+            },
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            }
+        },
+        {
+            "label": "clean",
+            "type": "shell",
+            "command": "make",
+            "args": ["clean"],
+            "group": "build",
+            "options": {
+                "env": {
+                    "LUA_INCDIR": "/opt/homebrew/Cellar/lua/5.4.8/include/lua5.4",
+                    "LUA_LIBDIR": "/opt/homebrew/Cellar/lua/5.4.8/lib"
+                }
+            }
+        },
+        {
+            "label": "test",
+            "type": "shell",
+            "command": "busted",
+            "args": ["--verbose", "--cpath=?.so"],
+            "group": "test",
+            "dependsOn": "build",
+            "options": {
+                "env": {
+                    "LUA_CPATH": "./?.so"
+                }
+            }
+        }
+    ]
+}

@@ -321,6 +321,7 @@ describe("Performance Comparison: simdjson vs cjson", function()
 
             local simdjson_time = measure_time(function()
                 local encoded = simdjson.encode(roundtrip_data)
+
                 simdjson.parse(encoded)
             end, iterations)
 
@@ -380,6 +381,23 @@ describe("Performance Comparison: simdjson vs cjson", function()
         end, iterations)
 
         show_comparison("Large boolean arrays", simdjson_time, cjson_time)
+    end)
+
+    it(string.format("XXLarge Boolean Array (%s iterations)", iterations), function()
+        local bool_data = {}
+        local choices = { true, false }
+        for i = 1, 100000 do bool_data[i] = choices[math.random(2)] end
+
+
+        local simdjson_time = measure_time(function()
+            simdjson.encode(bool_data)
+        end, 500)
+
+        local cjson_time = measure_time(function()
+            cjson.encode(bool_data)
+        end, 500)
+
+        show_comparison("XXLarge boolean arrays", simdjson_time, cjson_time)
     end)
 
     -- Print summary after all tests

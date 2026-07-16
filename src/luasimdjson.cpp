@@ -453,6 +453,8 @@ static void serialize_append_array(lua_State *L, SIMDJSON_BUILTIN_IMPLEMENTATION
     // If the value is nil, encode as null; otherwise, serialize normally
     if (lua_isnil(L, -1)) {
       builder.append_null();
+    } else if (lua_isboolean(L, -1)) {
+      serialize_append_bool(L, builder, -1);
     } else {
       serialize_data(L, current_depth, max_depth, builder);
     }
