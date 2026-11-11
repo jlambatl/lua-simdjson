@@ -109,7 +109,19 @@ class CrashInfrastructure {
         $state = Get-Content -Raw $statePath | ConvertFrom-Json
         if (-not $state.procdump) { throw 'ProcDump capture is not configured' }
         $probe = Join-Path $ModuleDir 'scripts/ci/encode_probe.lua'
-        $args = @('-accepteula', '-ma', '-e', '-n', '1', '-x', "`"$dumpDir`"", "`"$LuaExe`"", "`"$probe`"", 'nan', "`"$ModuleDir`"")
+        $resultsPath = Join-Path $OutputDir 'results.json'
+        $case = 'nan'
+        $failedProbe = $false
+        if (Test-Path $resultsPath) {
+            $independent = Get-Content -Raw $resultsPath | ConvertFrom-Json
+            $failed = @($independent.cases.PSObject.Properties | Where-Object { -not $_.Value.pass })
+            if ($failed.Count -gt 0) {
+                $case = $failed[0].Name
+                $failedProbe = $true
+            }
+        }
+        Write-Host "Capturing representative probe: $case"
+        $args = @('-accepteula', '-ma', '-e', '-n', '1', '-x', "`"$dumpDir`"", "`"$LuaExe`"", "`"$probe`"", $case, "`"$ModuleDir`"")
         $p = Start-Process $state.procdump -ArgumentList $args -PassThru -NoNewWindow `
             -RedirectStandardOutput (Join-Path $OutputDir 'native-capture.log') `
             -RedirectStandardError (Join-Path $OutputDir 'native-capture.stderr')
@@ -118,12 +130,8 @@ class CrashInfrastructure {
         # Python runner records that. Here success means capture tooling ran.
         $count = @(Get-ChildItem $dumpDir -Filter '*.dmp').Count
         Write-Host "Native debugger capture complete; dumps=$count, tool exit=$($p.ExitCode)"
-        $resultsPath = Join-Path $OutputDir 'results.json'
-        if (Test-Path $resultsPath) {
-            $independent = Get-Content -Raw $resultsPath | ConvertFrom-Json
-            if (-not $independent.cases.nan.pass -and $count -eq 0) {
-                throw 'Independent NaN probe failed, but native debugger produced no dump'
-            }
+        if ($failedProbe -and $count -eq 0) {
+            throw "Independent probe $case failed, but native debugger produced no dump"
         }
     } else {
         if (-not (Test-Path $statePath)) { throw 'Missing dump setup state' }
