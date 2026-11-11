@@ -299,7 +299,7 @@ t:test("rejects unsupported keys, values, and depth with a recoverable error", f
         {name = "userdata value", pattern = "unsupported Lua data type",
          build = function() return {value = io.stdout} end},
         {name = "thread value", pattern = "unsupported Lua data type",
-         build = function() return {value = coroutine.create(print)} end},
+         build = function() return {value = coroutine.create(function() end)} end},
         {name = "function in array", pattern = "unsupported Lua data type",
          build = function() return {1, 2, print} end},
         {name = "boolean key after valid entries", pattern = "unsupported key type",

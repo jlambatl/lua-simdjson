@@ -2,7 +2,8 @@
 
 -- encode_probe.lua: CLI to test error-path probes for non-finite values
 -- Usage: lua scripts/ci/encode_probe.lua <case> <module-dir>
--- Cases: nan, negative-nan, positive-infinity, negative-infinity, array-nan, object-nan, infinite-key, repeat-nan
+-- Cases: nan, negative-nan, positive-infinity, negative-infinity, array-nan, object-nan, infinite-key, repeat-nan,
+--        boolean-key, table-key, function-value, userdata-value, thread-value, cyclic-object, depth-object, depth-array
 
 local arg = arg or {}
 if #arg < 2 then
@@ -53,6 +54,14 @@ local valid_cases = {
     ["object-nan"] = true,
     ["infinite-key"] = true,
     ["repeat-nan"] = true,
+    ["boolean-key"] = true,
+    ["table-key"] = true,
+    ["function-value"] = true,
+    ["userdata-value"] = true,
+    ["thread-value"] = true,
+    ["cyclic-object"] = true,
+    ["depth-object"] = true,
+    ["depth-array"] = true,
 }
 
 if not valid_cases[case] then
@@ -66,11 +75,17 @@ io.stdout:write("BEGIN\n")
 io.stdout:flush()
 
 -- Helper: test error contract
-local function test_error_contract(value, context_name)
+local NON_FINITE_PATTERN = "cannot encode NaN or infinity as JSON"
+
+local function test_error_contract(value, context_name, pattern, options)
+    pattern = pattern or NON_FINITE_PATTERN
     io.stdout:write("BEFORE_ERROR_CALL " .. context_name .. "\n")
     io.stdout:flush()
     
     local success, error_msg = pcall(function()
+        if options then
+            return simdjson.encode(value, options)
+        end
         return simdjson.encode(value)
     end)
     
@@ -82,7 +97,7 @@ local function test_error_contract(value, context_name)
         return false
     end
     
-    if not error_msg or not error_msg:match("cannot encode NaN or infinity as JSON") then
+    if not error_msg or not tostring(error_msg):find(pattern, 1, true) then
         io.stderr:write("FAIL: error message does not match pattern. Got: " .. tostring(error_msg) .. "\n")
         return false
     end
@@ -117,6 +132,37 @@ elseif case == "object-nan" then
     test_passed = test_error_contract({a = 1, b = 0 / 0, c = 3}, "object-nan")
 elseif case == "infinite-key" then
     test_passed = test_error_contract({[math.huge] = "value"}, "infinite-key")
+elseif case == "boolean-key" then
+    test_passed = test_error_contract({[true] = 1}, "boolean-key", "unsupported key type")
+elseif case == "table-key" then
+    test_passed = test_error_contract({[{}] = 1}, "table-key", "unsupported key type")
+elseif case == "function-value" then
+    test_passed = test_error_contract({value = print}, "function-value", "unsupported Lua data type")
+elseif case == "userdata-value" then
+    test_passed = test_error_contract({value = io.stdout}, "userdata-value", "unsupported Lua data type")
+elseif case == "thread-value" then
+    test_passed = test_error_contract({value = coroutine.create(function() end)}, "thread-value",
+        "unsupported Lua data type")
+elseif case == "cyclic-object" then
+    local root = {child = {}}
+    root.child.loop = root
+    test_passed = test_error_contract(root, "cyclic-object", "cyclic table")
+elseif case == "depth-object" then
+    local root = {}
+    local current = root
+    for _ = 1, 10 do
+        current.child = {}
+        current = current.child
+    end
+    test_passed = test_error_contract(root, "depth-object", "maximum nesting depth exceeded", {maxDepth = 4})
+elseif case == "depth-array" then
+    local root = {}
+    local current = root
+    for _ = 1, 10 do
+        current[1] = {}
+        current = current[1]
+    end
+    test_passed = test_error_contract(root, "depth-array", "maximum nesting depth exceeded", {maxDepth = 4})
 elseif case == "repeat-nan" then
     -- 10,000 rejection/recovery iterations
     local iterations = 10000

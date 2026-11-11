@@ -3,6 +3,7 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -381,6 +382,20 @@ class TestRunEncodeDiagnostics(unittest.TestCase):
             results = json.load(f)
         self.assertFalse(results["cases"]["nan"]["pass"],
                         "Should fail if PASS marker not found, even with exit 0")
+
+    def test_runner_cases_match_probe_valid_cases(self):
+        """Every runner case must be accepted by the Lua probe, and vice versa."""
+        sys.path.insert(0, str(Path(__file__).parent))
+        try:
+            import run_encode_diagnostics
+        finally:
+            sys.path.pop(0)
+        probe = (Path(__file__).parent / "encode_probe.lua").read_text()
+        block = probe.split("local valid_cases = {", 1)[1].split("\n}", 1)[0]
+        probe_cases = set(re.findall(r'\["([a-z-]+)"\] = true', block))
+        self.assertEqual(set(run_encode_diagnostics.DEFAULT_CASES), probe_cases)
+        self.assertEqual(len(run_encode_diagnostics.DEFAULT_CASES),
+                         len(probe_cases), "DEFAULT_CASES contains duplicates")
 
 
 if __name__ == "__main__":

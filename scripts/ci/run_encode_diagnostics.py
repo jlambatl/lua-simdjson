@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 
 
-# Default 8 cases from Task 2
+# Default probe cases: 8 non-finite number cases plus 8 other encoder error sites
 DEFAULT_CASES = [
     "nan",
     "negative-nan",
@@ -25,7 +25,16 @@ DEFAULT_CASES = [
     "array-nan",
     "object-nan",
     "infinite-key",
-    "repeat-nan"
+    "repeat-nan",
+    # Other encoder error sites that raise Lua errors after builder appends
+    "boolean-key",
+    "table-key",
+    "function-value",
+    "userdata-value",
+    "thread-value",
+    "cyclic-object",
+    "depth-object",
+    "depth-array",
 ]
 
 # Max 1 MiB per output file
