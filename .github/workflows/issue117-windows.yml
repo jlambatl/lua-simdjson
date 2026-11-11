@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        simdjson: ['5.0.5', '5.1.1']
+        simdjson: ['5.0.5', '5.0.8', '5.1.1']
         config:
           - {name: lua52-vs, args: '--lua=5.2', target: vs}
           - {name: lua53-vs, args: '--lua=5.3', target: vs}
@@ -48,6 +48,19 @@ jobs:
           if ('${{ matrix.simdjson }}' -eq '5.0.5') {
             git restore --source=d12a8b062ee7f9229e3e9ab2a1665f085f1a695b -- src/simdjson.h src/simdjson.cpp
             if ($LASTEXITCODE -ne 0) { throw 'Baseline restore failed' }
+          }
+          if ('${{ matrix.simdjson }}' -eq '5.0.8') {
+            # Official v5.0.8 release assets, pinned by SHA-256.
+            $base = 'https://github.com/simdjson/simdjson/releases/download/v5.0.8'
+            $pins = @{
+              'simdjson.h'   = '37059bf8d8c7ff16c335c62f840ddf6bbb3504a24b8f2eb4e985fea38063f8a7'
+              'simdjson.cpp' = 'd7e20a710d064e823110f6ce2534ceaf32936e84c8d25e53cc1c8df5ed25a8a2'
+            }
+            foreach ($name in $pins.Keys) {
+              Invoke-WebRequest -Uri "$base/$name" -OutFile "src/$name"
+              $actual = (Get-FileHash "src/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($actual -ne $pins[$name]) { throw "Checksum mismatch for $name : $actual" }
+            }
           }
           $expected = '#define SIMDJSON_VERSION "${{ matrix.simdjson }}"'
           if (-not (Select-String -Path src/simdjson.h -Pattern $expected -SimpleMatch -Quiet)) { throw 'Wrong simdjson version' }
