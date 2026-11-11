@@ -50,7 +50,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Baseline restore failed' }
           }
           $expected = '#define SIMDJSON_VERSION "${{ matrix.simdjson }}"'
-          if (-not (Select-String src/simdjson.h -SimpleMatch $expected -Quiet)) { throw 'Wrong simdjson version' }
+          if (-not (Select-String -Path src/simdjson.h -Pattern $expected -SimpleMatch -Quiet)) { throw 'Wrong simdjson version' }
           New-Item -ItemType Directory -Force test/tmp_rovo_diagnostics | Out-Null
           Get-FileHash src/simdjson.h,src/simdjson.cpp | Format-List | Out-File test/tmp_rovo_diagnostics/sources.txt
           git rev-parse HEAD
