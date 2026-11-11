@@ -28,4 +28,15 @@ Every persisted checkpoint is cryptographically signed and DCO signed off with `
 
 ## Results
 
-Implementation and native Windows CI results are pending. Earlier local tests are not evidence that 5.1.1 passes or that the reported Windows crash is resolved.
+## Local implementation evidence (2026-11-11)
+
+The official 5.1.1 pair was integrated unchanged. SHA-256:
+
+- `src/simdjson.h`: `f3e5ee5f39051960b5ce65762ee4b6919caf270675eb52240ebd92f21a5bcefd`
+- `src/simdjson.cpp`: `3ea5f501cef6c2e16e28095b566feeb56021ca473aaf50aad32102f45d734195`
+
+A clean C++17 macOS/ARM64 build of integrated 5.1.1 passed all **27 Lua tests** and all **8 isolated diagnostic cases**, including 10,000 repeated NaN errors with recovery every iteration. The Python diagnostic runner passed **7 real-child-process contract tests**. The Windows comparison workflow passed actionlint 1.7.12. No binding compatibility edit or production crash fix was necessary for these local results.
+
+The diagnostic tests were committed as a signed failing checkpoint before the runner was integrated; the initial missing-runner failures and final passing results were observed. Some worker-added edge tests were written after their implementations despite the requested one-at-a-time TDD protocol; this process deviation is disclosed rather than claimed as full per-behavior RED/GREEN proof. A timeout JSON serialization failure was independently reproduced and corrected. Every actual commit remains signed and signed off.
+
+Native Windows CI is pending. Local green results do not establish that issue #117 is reproduced or fixed. The Windows dump self-test is synthetic infrastructure validation, explicitly not issue117 reproduction evidence.
