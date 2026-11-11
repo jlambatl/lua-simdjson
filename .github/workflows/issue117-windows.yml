@@ -112,6 +112,14 @@ jobs:
           set "SUITE_EXIT=%ERRORLEVEL%"
           type test\tmp_rovo_diagnostics\suite.log
           exit /b %SUITE_EXIT%
+      - name: Capture representative native failure under debugger
+        id: capture
+        if: ${{ always() && steps.setup.outcome == 'success' }}
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          & ./scripts/ci/windows_crash_diagnostics.ps1 -Mode Capture -OutputDir "$PWD/test/tmp_rovo_diagnostics" -ModuleDir "$PWD" -LuaExe "$PWD/lua_install/bin/lua.exe"
+          exit $LASTEXITCODE
       - name: Analyze native and synthetic dumps separately
         id: analyze
         if: ${{ always() && steps.setup.outcome == 'success' }}
@@ -148,10 +156,11 @@ jobs:
           RUNNER: ${{ steps.runner_tests.outcome }}
           PROBES: ${{ steps.probes.outcome }}
           SUITE: ${{ steps.suite.outcome }}
+          CAPTURE: ${{ steps.capture.outcome }}
           ANALYZE: ${{ steps.analyze.outcome }}
           CLEANUP: ${{ steps.cleanup.outcome }}
         run: |
-          $failed = @('BUILD','SETUP','RUNNER','PROBES','SUITE','ANALYZE','CLEANUP') | Where-Object {
+          $failed = @('BUILD','SETUP','RUNNER','PROBES','SUITE','CAPTURE','ANALYZE','CLEANUP') | Where-Object {
             [Environment]::GetEnvironmentVariable($_) -ne 'success'
           }
           if ($failed.Count -gt 0) { throw "Required stages failed or skipped: $failed" }

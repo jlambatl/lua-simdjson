@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('Setup', 'Analyze', 'Cleanup')][string]$Mode,
+    [Parameter(Mandatory)][ValidateSet('Setup', 'Capture', 'Analyze', 'Cleanup')][string]$Mode,
     [Parameter(Mandatory)][string]$OutputDir,
     [string]$ModuleDir = $PWD.Path,
     [string]$LuaExe,
@@ -86,18 +86,38 @@ class CrashInfrastructure {
             $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
             & $csc /nologo /target:exe "/out:$exe" $source
             if ($LASTEXITCODE -ne 0) { throw 'Synthetic crash child compilation failed' }
-            $child = Start-Process $exe -PassThru -NoNewWindow
-            if (-not $child.WaitForExit(30000)) { $child.Kill(); throw 'Synthetic crash child hung' }
-            $deadline = (Get-Date).AddSeconds(60)
-            do {
-                $dumps = @(Get-ChildItem $dumpDir -Filter '*.dmp')
-                if ($dumps.Count -gt 0) { break }
-                Start-Sleep 1
-            } while ((Get-Date) -lt $deadline)
-            if ($dumps.Count -eq 0) { throw 'Synthetic native failure did not produce a WER dump' }
-            $dumps | Move-Item -Destination $selfDir
-            Write-Host 'SYNTHETIC infrastructure dump captured; not issue117 evidence'
+            # Hosted runners did not emit WER dumps for fail-fast. Launch under
+            # Microsoft's ProcDump debugger instead; prove capture with this child.
+            $zip = Join-Path $OutputDir 'tmp_rovo_procdump.zip'
+            Invoke-WebRequest 'https://download.sysinternals.com/files/Procdump.zip' -OutFile $zip
+            $tools = Join-Path $OutputDir 'procdump'
+            Expand-Archive -Path $zip -DestinationPath $tools -Force
+            $pd = Join-Path $tools 'procdump64.exe'
+            if ((Get-AuthenticodeSignature $pd).Status -ne 'Valid') { throw 'ProcDump signature invalid' }
+            $state.procdump = $pd
+            $state | ConvertTo-Json | Set-Content $statePath
+            $pdArgs = @('-accepteula', '-ma', '-e', '-x', "`"$selfDir`"", "`"$exe`"")
+            $child = Start-Process $pd -ArgumentList $pdArgs -PassThru -NoNewWindow `
+                -RedirectStandardOutput (Join-Path $selfDir 'capture.log') `
+                -RedirectStandardError (Join-Path $selfDir 'capture.stderr')
+            if (-not $child.WaitForExit(90000)) { $child.Kill(); throw 'Synthetic debugger child hung' }
+            $dumps = @(Get-ChildItem $selfDir -Filter '*.dmp')
+            if ($dumps.Count -eq 0) { throw 'ProcDump synthetic self-test produced no dump' }
+            Write-Host 'SYNTHETIC debugger dump captured; not issue117 evidence'
         }
+    } elseif ($Mode -eq 'Capture') {
+        $state = Get-Content -Raw $statePath | ConvertFrom-Json
+        if (-not $state.procdump) { throw 'ProcDump capture is not configured' }
+        $probe = Join-Path $ModuleDir 'scripts/ci/encode_probe.lua'
+        $args = @('-accepteula', '-ma', '-e', '-n', '1', '-x', "`"$dumpDir`"", "`"$LuaExe`"", "`"$probe`"", 'nan', "`"$ModuleDir`"")
+        $p = Start-Process $state.procdump -ArgumentList $args -PassThru -NoNewWindow `
+            -RedirectStandardOutput (Join-Path $OutputDir 'native-capture.log') `
+            -RedirectStandardError (Join-Path $OutputDir 'native-capture.stderr')
+        if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'Native debugger capture timed out' }
+        # ProcDump's return code is not the target process outcome; the independent
+        # Python runner records that. Here success means capture tooling ran.
+        $count = @(Get-ChildItem $dumpDir -Filter '*.dmp').Count
+        Write-Host "Native debugger capture complete; dumps=$count, tool exit=$($p.ExitCode)"
     } else {
         if (-not (Test-Path $statePath)) { throw 'Missing dump setup state' }
         $state = Get-Content -Raw $statePath | ConvertFrom-Json
