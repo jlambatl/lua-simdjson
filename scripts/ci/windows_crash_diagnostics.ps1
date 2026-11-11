@@ -118,6 +118,13 @@ class CrashInfrastructure {
         # Python runner records that. Here success means capture tooling ran.
         $count = @(Get-ChildItem $dumpDir -Filter '*.dmp').Count
         Write-Host "Native debugger capture complete; dumps=$count, tool exit=$($p.ExitCode)"
+        $resultsPath = Join-Path $OutputDir 'results.json'
+        if (Test-Path $resultsPath) {
+            $independent = Get-Content -Raw $resultsPath | ConvertFrom-Json
+            if (-not $independent.cases.nan.pass -and $count -eq 0) {
+                throw 'Independent NaN probe failed, but native debugger produced no dump'
+            }
+        }
     } else {
         if (-not (Test-Path $statePath)) { throw 'Missing dump setup state' }
         $state = Get-Content -Raw $statePath | ConvertFrom-Json
