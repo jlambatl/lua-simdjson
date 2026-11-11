@@ -1,0 +1,157 @@
+name: issue117 Windows comparison
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    if: github.repository == 'jlambatl/lua-simdjson'
+    runs-on: windows-2022
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        simdjson: ['5.0.5', '5.1.1']
+        config:
+          - {name: lua52-vs, args: '--lua=5.2', target: vs}
+          - {name: lua53-vs, args: '--lua=5.3', target: vs}
+          - {name: lua55-vs, args: '--lua=5.5', target: vs}
+          - {name: luajit21-vs, args: '--luajit=2.1', target: vs}
+          - {name: lua53-mingw, args: '--lua=5.3', target: mingw}
+    name: simdjson ${{ matrix.simdjson }} / ${{ matrix.config.name }}
+    defaults:
+      run:
+        shell: cmd
+    env:
+      ISSUE117_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      ISSUE117_MERGE_SHA: ${{ github.sha }}
+      ISSUE117_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: matrix.config.target == 'vs'
+        with:
+          arch: x64
+      - name: Select exact paired dependency sources
+        shell: pwsh
+        run: |
+          if ('${{ matrix.simdjson }}' -eq '5.0.5') {
+            git restore --source=d12a8b062ee7f9229e3e9ab2a1665f085f1a695b -- src/simdjson.h src/simdjson.cpp
+            if ($LASTEXITCODE -ne 0) { throw 'Baseline restore failed' }
+          }
+          $expected = '#define SIMDJSON_VERSION "${{ matrix.simdjson }}"'
+          if (-not (Select-String src/simdjson.h -SimpleMatch $expected -Quiet)) { throw 'Wrong simdjson version' }
+          New-Item -ItemType Directory -Force test/tmp_rovo_diagnostics | Out-Null
+          Get-FileHash src/simdjson.h,src/simdjson.cpp | Format-List | Out-File test/tmp_rovo_diagnostics/sources.txt
+          git rev-parse HEAD
+      - name: Install interpreter and dependencies
+        run: |
+          python -m pip install git+https://github.com/luarocks/hererocks
+          if errorlevel 1 exit /b 1
+          hererocks lua_install -r "^" ${{ matrix.config.args }} --target=${{ matrix.config.target }}
+          if errorlevel 1 exit /b 1
+          call lua_install\bin\activate.bat
+          call luarocks install tested 0.5.0
+          if errorlevel 1 exit /b 1
+          call luarocks install lua-cjson
+          if errorlevel 1 exit /b 1
+          where lua
+          lua -v
+      - name: Build module with normal optimization and symbols
+        id: build
+        run: |
+          call lua_install\bin\activate.bat
+          if "${{ matrix.config.target }}" == "vs" (
+            call luarocks make CFLAGS="-O2 -Zi" LIBFLAG="-dll -DEBUG"
+          ) else (
+            call luarocks make
+          )
+          if errorlevel 1 exit /b 1
+      - name: Enable and self-test native crash evidence
+        id: setup
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          & ./scripts/ci/windows_crash_diagnostics.ps1 -Mode Setup -SelfTest `
+            -OutputDir "$PWD/test/tmp_rovo_diagnostics" -ModuleDir "$PWD" -LuaExe "$PWD/lua_install/bin/lua.exe"
+          exit $LASTEXITCODE
+      - name: Test diagnostic runner contracts
+        id: runner_tests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        continue-on-error: true
+        run: python -m unittest discover -s scripts/ci -p "test_*.py" -v
+      - name: Run isolated native probes
+        id: probes
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          call lua_install\bin\activate.bat
+          python scripts\ci\run_encode_diagnostics.py --lua "%CD%\lua_install\bin\lua.exe" --module-dir "%CD%" --output "%CD%\test\tmp_rovo_diagnostics" --timeout-seconds 60 >test\tmp_rovo_diagnostics\runner.log 2>&1
+          set "PROBE_EXIT=%ERRORLEVEL%"
+          type test\tmp_rovo_diagnostics\runner.log
+          exit /b %PROBE_EXIT%
+      - name: Run full Lua suite independently
+        id: suite
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          call lua_install\bin\activate.bat
+          set "LUA_CPATH=%CD%\?.dll;;"
+          call luarocks test -- --debug DEBUG >test\tmp_rovo_diagnostics\suite.log 2>&1
+          set "SUITE_EXIT=%ERRORLEVEL%"
+          type test\tmp_rovo_diagnostics\suite.log
+          exit /b %SUITE_EXIT%
+      - name: Analyze native and synthetic dumps separately
+        id: analyze
+        if: ${{ always() && steps.setup.outcome == 'success' }}
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          & ./scripts/ci/windows_crash_diagnostics.ps1 -Mode Analyze -OutputDir "$PWD/test/tmp_rovo_diagnostics" -ModuleDir "$PWD"
+          exit $LASTEXITCODE
+      - name: Restore native dump settings
+        id: cleanup
+        if: ${{ always() && steps.setup.outcome != 'skipped' }}
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          & ./scripts/ci/windows_crash_diagnostics.ps1 -Mode Cleanup -OutputDir "$PWD/test/tmp_rovo_diagnostics"
+          exit $LASTEXITCODE
+      - name: Preserve evidence regardless of result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue117-${{ matrix.simdjson }}-${{ matrix.config.name }}
+          retention-days: 7
+          path: |
+            test/tmp_rovo_diagnostics/
+            simdjson.dll
+            *.pdb
+            src/*.pdb
+      - name: Require every diagnostic stage to succeed
+        if: always()
+        shell: pwsh
+        env:
+          BUILD: ${{ steps.build.outcome }}
+          SETUP: ${{ steps.setup.outcome }}
+          RUNNER: ${{ steps.runner_tests.outcome }}
+          PROBES: ${{ steps.probes.outcome }}
+          SUITE: ${{ steps.suite.outcome }}
+          ANALYZE: ${{ steps.analyze.outcome }}
+          CLEANUP: ${{ steps.cleanup.outcome }}
+        run: |
+          $failed = @('BUILD','SETUP','RUNNER','PROBES','SUITE','ANALYZE','CLEANUP') | Where-Object {
+            [Environment]::GetEnvironmentVariable($_) -ne 'success'
+          }
+          if ($failed.Count -gt 0) { throw "Required stages failed or skipped: $failed" }
