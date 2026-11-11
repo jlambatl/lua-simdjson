@@ -241,6 +241,29 @@ static int get_table_array_size(lua_State *L, int table_index)
 static void serialize_data(lua_State *L, int value_index,
                            encode_context &context);
 
+// Frames that contain inlined simdjson builder code must not call luaL_error
+// directly: on MSVC the longjmp unwind then reaches a terminate handler
+// (0xC0000409 with simdjson 5.1.1). Raise those errors from these small
+// non-inlined frames, which contain no builder code.
+static simdjson_never_inline void raise_unsupported_key_type(lua_State *L,
+                                                             int key_type)
+{
+  luaL_error(L, "unsupported key type in table for serialization: %s",
+             lua_typename(L, key_type));
+}
+
+static simdjson_never_inline void raise_unsupported_value_type(lua_State *L,
+                                                               int value_type)
+{
+  luaL_error(L, "unsupported Lua data type for serialization: %s",
+             lua_typename(L, value_type));
+}
+
+static simdjson_never_inline void raise_unsupported_lightuserdata(lua_State *L)
+{
+  luaL_error(L, "unsupported lightuserdata value for serialization");
+}
+
 // Keep simdjson's inlined noexcept/EH scopes out of Lua error-handling
 // frames: MSVC longjmp unwinding can otherwise enter a terminate handler.
 // This boundary must not call the Lua API or raise a Lua error.
@@ -347,8 +370,7 @@ static void serialize_append_object(lua_State *L, int table_index,
     }
     else
     {
-      luaL_error(L, "unsupported key type in table for serialization: %s",
-                 lua_typename(L, key_type));
+      raise_unsupported_key_type(L, key_type);
     }
 
     context.builder.append_colon();
@@ -398,12 +420,11 @@ static void serialize_data(lua_State *L, int value_index,
     }
     else
     {
-      luaL_error(L, "unsupported lightuserdata value for serialization");
+      raise_unsupported_lightuserdata(L);
     }
     break;
   default:
-    luaL_error(L, "unsupported Lua data type for serialization: %s",
-               lua_typename(L, lua_type(L, value_index)));
+    raise_unsupported_value_type(L, lua_type(L, value_index));
   }
 }
 } // namespace
