@@ -87,6 +87,27 @@ Native result at `7b54b3d`:
 - Comparison run 42946913661: **10/10 green** (5.0.5 and 5.1.1 across MSVC Lua 5.2/5.3/5.5, MSVC LuaJIT 2.1, MinGW Lua 5.3).
 - Full CI run 42946913648: **35/35 green**, including MSVC Lua 5.1-5.5, LuaJIT 2.0/2.1, MinGW, macOS, Linux and sanitizers.
 
+### Wider coverage found the earlier "35/35 green" result was incomplete
+
+Native probes for the remaining encoder error sites (`boolean-key`, `table-key`, `function-value`, `userdata-value`, `thread-value`, `cyclic-object`, `depth-object`, `depth-array`) showed that at `ad3e1c7` (attempts 1 and 2) `boolean-key` and `table-key` still crashed with `0xC0000409` on every MSVC configuration with simdjson 5.1.1 (comparison run 42950950865). The 5.0.5 controls passed all 16 probes; MinGW passed everything.
+
+Version bisect with the same encoder (run 42954000964, commit `1aa3dfc`): **simdjson 5.0.8 fails the same two probes on every MSVC configuration**, so the maintainer's 5.0.8 upgrade hits the crash. simdjson 5.0.6 introduced "builder: store string_builder bytes in a std::string, add move_to()" (#2930); 5.0.6 and 5.0.7 were not tested natively, so where exactly the crash starts is inferred from the release notes.
+
+### Attempt 3 (`7c82525`): non-inlined error-raising helpers: no effect
+
+Routing the unsupported key/value errors through `never_inline` helpers left `boolean-key` and `table-key` crashing identically (run 42951597193). The dump still showed `luaL_error` reached from `serialize_append_object`, so "do not call `luaL_error` directly from frames with inlined builder code" was not a sufficient rule. The compiler's handling of the helper call (which it may treat as non-throwing) is the suspected reason; this was not verified at instruction level.
+
+### Attempt 4 (`fc8bc0e`): structural fix, status codes instead of `luaL_error`
+
+Serializer functions return a status and never call `luaL_error`. `encode_value()` (non-inlined) does all builder work and returns plain data; `encode()` has no C++ objects with destructors and raises the Lua error after `encode_value()` has returned, so the longjmp has no C++ unwind state to unwind. Error messages are unchanged. The `simdjson_never_inline` workarounds were removed, which also removes the dependency on a vendored-simdjson macro.
+
+Native results at `fc8bc0e`:
+
+- Comparison run 42954182594: **15/15 green**: simdjson 5.0.5, 5.0.8 and 5.1.1 across MSVC Lua 5.2/5.3/5.5, MSVC LuaJIT 2.1 and MinGW Lua 5.3, each with all 16 probes and the full Lua suite (28 tests).
+- Full CI run 42954182607 (vendored 5.1.1): **35/35 green**.
+
 ### Root-cause statement and limits
 
-Evidence supports: with simdjson 5.1.1's inlined `noexcept` builder code, MSVC builds of lua-simdjson can place `luaL_error` (a longjmp) in a frame whose C++ unwind state makes MSVC's longjmp unwinder call `terminate`, producing fail-fast `0xC0000409`. Keeping Lua error raising and builder appends in separate non-inlined frames avoids it in all tested configurations. The exact compiler state-table mechanism was not inspected at instruction level, and the fix relies on the compiler honoring `never_inline`; it is a mitigation validated empirically, not a formal guarantee. Whether the original reporter's exact environment matches the hosted runners is unconfirmed.
+On MSVC x64, `longjmp` unwinds the frames it skips using their C++ unwind state. With simdjson 5.0.6+ (std::string-backed builder with inlined `noexcept` code), `luaL_error` raised from serializer frames reached `terminate()` (fail-fast `0xC0000409`). Linux and macOS `longjmp` does not consult C++ unwind tables, and MinGW passed, so no crash was observed there (they instead skip destructors, a separate pre-existing leak class). The exact MSVC state-table mechanism was not inspected at instruction level. The fix removes the dependency on it by not raising Lua errors from frames with C++ unwind state. Whether the original reporter's environment matches the hosted runners is unconfirmed.
+
+Pre-existing, separate defects found in review (verified on the baseline): Lua stack overflow on deep nesting (no `lua_checkstack`), leaks from `luaL_error` inside `catch` blocks and with live destructors in `parse_file`, and `__gc` reachable from Lua (double free). These are not addressed by this branch.
