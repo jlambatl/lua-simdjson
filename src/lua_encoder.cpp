@@ -241,13 +241,23 @@ static int get_table_array_size(lua_State *L, int table_index)
 static void serialize_data(lua_State *L, int value_index,
                            encode_context &context);
 
+// Keep simdjson's inlined noexcept/EH scopes out of Lua error-handling
+// frames: MSVC longjmp unwinding can otherwise enter a terminate handler.
+// This boundary must not call the Lua API or raise a Lua error.
+template <typename T>
+static simdjson_never_inline void append_number(
+    simdjson::builder::string_builder &builder, T value)
+{
+  builder.append(value);
+}
+
 static void serialize_append_number(lua_State *L, int index,
                                     encode_context &context)
 {
 #if LUA_VERSION_NUM >= 503
   if (lua_isinteger(L, index))
   {
-    context.builder.append(lua_tointeger(L, index));
+    append_number(context.builder, lua_tointeger(L, index));
     return;
   }
 #endif
@@ -256,7 +266,7 @@ static void serialize_append_number(lua_State *L, int index,
   {
     luaL_error(L, "cannot encode NaN or infinity as JSON");
   }
-  context.builder.append(value);
+  append_number(context.builder, value);
 }
 
 static void serialize_append_string(lua_State *L, int index,
