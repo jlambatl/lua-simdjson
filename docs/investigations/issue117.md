@@ -40,3 +40,32 @@ A clean C++17 macOS/ARM64 build of integrated 5.1.1 passed all **27 Lua tests** 
 The diagnostic tests were committed as a signed failing checkpoint before the runner was integrated; the initial missing-runner failures and final passing results were observed. Some worker-added edge tests were written after their implementations despite the requested one-at-a-time TDD protocol; this process deviation is disclosed rather than claimed as full per-behavior RED/GREEN proof. A timeout JSON serialization failure was independently reproduced and corrected. Every actual commit remains signed and signed off.
 
 Native Windows CI is pending. Local green results do not establish that issue #117 is reproduced or fixed. The Windows dump self-test is synthetic infrastructure validation, explicitly not issue117 reproduction evidence.
+
+## Native Windows RED evidence
+
+Tested code: `45afd879a3db9ee31438570acd4385f6b07a4600`.
+Comparison: https://github.com/jlambatl/lua-simdjson/actions/runs/42936457771
+Full platform CI: https://github.com/jlambatl/lua-simdjson/actions/runs/42936457974
+
+The identical binding/test revision with 5.0.5 passes all 8 probes in all five control configurations. 5.1.1 passes on MSVC Lua 5.2, MSVC LuaJIT 2.1, and MinGW Lua 5.3, but all 8 probes fail on MSVC Lua 5.3 and Lua 5.5 with exit `0xC0000409`, before returning from `pcall`. Normal full CI also fails only on MSVC Lua 5.3/5.4/5.5 (32/35 jobs pass).
+
+ProcDump captures and CDB analyzes `dumps/lua.exe_261111_010832.dmp`, artifact `issue117-5.1.1-lua53-vs`. Its `native-lua.exe_261111_010832.txt` identifies `FAST_FAIL_FATAL_APP_EXIT`, subcode 7, and the actual stack:
+
+```text
+simdjson!abort
+simdjson!terminate
+simdjson!__std_terminate
+simdjson!__FrameHandler4::FrameUnwindToState
+simdjson!__CxxFrameHandler4
+ntdll!RtlUnwindEx
+VCRUNTIME140!__longjmp_internal
+lua53!lua_error
+lua53!luaL_error
+simdjson!serialize_append_number+0x785
+simdjson!serialize_data
+simdjson!encode
+```
+
+This proves the Lua error enters longjmp and terminates during MSVC C++ frame unwinding, not normal fall-through into append. It does not show allocation failure or an actual stack-buffer overrun despite the generic Windows status description.
+
+Next minimal hypothesis: isolate the numeric builder calls behind a non-inlined template, preserving exact Lua numeric types and keeping vendor sources unchanged. Native GREEN validation is pending; local 27 Lua tests, 7 Python tests and all 8 probes pass with the proposed boundary.
