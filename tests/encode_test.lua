@@ -178,6 +178,89 @@ t:test("recovers after encoding errors", function()
     tested.assert{expected = '{"valid":true}', actual = simdjson.encode({valid = true})}
 end)
 
+t:test("rejects NaN and infinity in scalar form", function()
+    local test_values = {
+        {value = 0 / 0, name = "NaN"},
+        {value = math.huge, name = "positive infinity"},
+        {value = -math.huge, name = "negative infinity"},
+    }
+
+    for _, test in ipairs(test_values) do
+        local success, err = pcall(function()
+            simdjson.encode(test.value)
+        end)
+        tested.assert{expected = false, actual = success}
+        tested.assert{expected = true, actual = tostring(err):match("cannot encode NaN or infinity as JSON") ~= nil}
+    end
+end)
+
+t:test("rejects NaN and infinity nested in arrays", function()
+    local test_values = {
+        {1, 0 / 0, 3},
+        {0 / 0},
+        {1, 2, math.huge},
+        {1, 2, -math.huge},
+    }
+
+    for _, array in ipairs(test_values) do
+        local success, err = pcall(function()
+            simdjson.encode(array)
+        end)
+        tested.assert{expected = false, actual = success}
+        tested.assert{expected = true, actual = tostring(err):match("cannot encode NaN or infinity as JSON") ~= nil}
+    end
+end)
+
+t:test("rejects NaN and infinity nested in objects", function()
+    local test_values = {
+        {a = 1, b = 0 / 0, c = 3},
+        {nan = 0 / 0},
+        {inf = math.huge},
+        {ninf = -math.huge},
+    }
+
+    for _, obj in ipairs(test_values) do
+        local success, err = pcall(function()
+            simdjson.encode(obj)
+        end)
+        tested.assert{expected = false, actual = success}
+        tested.assert{expected = true, actual = tostring(err):match("cannot encode NaN or infinity as JSON") ~= nil}
+    end
+end)
+
+t:test("rejects non-finite numeric object keys", function()
+    local success1, err1 = pcall(function()
+        simdjson.encode({[math.huge] = "value"})
+    end)
+    tested.assert{expected = false, actual = success1}
+    tested.assert{expected = true, actual = tostring(err1):match("cannot encode NaN or infinity as JSON") ~= nil}
+
+    local success2, err2 = pcall(function()
+        simdjson.encode({[-math.huge] = "value"})
+    end)
+    tested.assert{expected = false, actual = success2}
+    tested.assert{expected = true, actual = tostring(err2):match("cannot encode NaN or infinity as JSON") ~= nil}
+end)
+
+t:test("recovers after NaN/infinity errors", function()
+    -- Single error recovery
+    tested.assert_throws_exception{actual = function()
+        simdjson.encode(0 / 0)
+    end}
+    tested.assert{expected = '{"valid":true}', actual = simdjson.encode({valid = true})}
+
+    -- Multiple distinct errors in sequence
+    tested.assert_throws_exception{actual = function()
+        simdjson.encode(math.huge)
+    end}
+    tested.assert{expected = '{"valid":true}', actual = simdjson.encode({valid = true})}
+
+    tested.assert_throws_exception{actual = function()
+        simdjson.encode({nested = 0 / 0})
+    end}
+    tested.assert{expected = '{"valid":true}', actual = simdjson.encode({valid = true})}
+end)
+
 t:test("rejects overflowing configuration values", function()
     tested.assert_throws_exception{actual = function()
         simdjson.setMaxEncodeDepth(4294967297)
