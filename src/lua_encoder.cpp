@@ -251,8 +251,11 @@ static simdjson_never_inline void append_number(
   builder.append(value);
 }
 
-static void serialize_append_number(lua_State *L, int index,
-                                    encode_context &context)
+// Numeric validation raises Lua errors, so keep it in its own frame. When it
+// was inlined into serialize_append_object (numeric keys), MSVC's longjmp
+// unwind reached a terminate handler while processing that caller's EH state.
+static simdjson_never_inline void serialize_append_number(
+    lua_State *L, int index, encode_context &context)
 {
 #if LUA_VERSION_NUM >= 503
   if (lua_isinteger(L, index))
